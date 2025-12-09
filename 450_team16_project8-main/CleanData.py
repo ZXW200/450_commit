@@ -3,14 +3,19 @@ import os
 import re
 from Mapping import COUNTRY_CODE, INCOME_MAP, SPONSOR_KEYWORDS
 
+# create output folder if it doesn't exist
 os.makedirs("CleanedData", exist_ok=True)
 
 def classify_categories(sponsor_name):
-    # check sponsor name and put into different types
+    """
+    Classify sponsor into one of four categories based on keywords in their name.
+    Returns: Government, Industry, Non-profit, Other, or Unknown
+    """
     if pd.isna(sponsor_name) or str(sponsor_name).upper() in ['UNKNOWN', '']:
         return "Unknown"
     sponsor_upper = str(sponsor_name).upper()
 
+    # check against predefined keywords for each category
     if any(k in sponsor_upper for k in SPONSOR_KEYWORDS['Government']):
         return "Government"
     if any(k in sponsor_upper for k in SPONSOR_KEYWORDS['Industry']):
@@ -21,9 +26,13 @@ def classify_categories(sponsor_name):
 
 
 def map_income(code_str):
-    # use country code to find income level
+    """
+    Map country code to income level (Low, Lower middle, Upper middle, High).
+    Handles multiple codes separated by |, comma, semicolon, or space.
+    """
     if pd.isna(code_str):
         return "Unknown"
+    # extract first country code if multiple codes present
     code = re.split(r'[|,;/\s]+', str(code_str).strip().upper())[0]
     for lvl, codes in INCOME_MAP.items():
         if code in codes:
@@ -31,35 +40,45 @@ def map_income(code_str):
     return "Unknown"
 
 
+# Load raw clinical trial data
 file_path = "ictrp_data.csv"
 df = pd.read_csv(file_path, on_bad_lines="skip", encoding="utf-8")
 print(f"raw data: {len(df)} ")
 
+# standardize date formats to YYYY-MM-DD
 date_fields = ['date_registration', 'date_enrollment']
 for field in date_fields:
     if field in df.columns:
         df[field] = pd.to_datetime(df[field], format='%Y-%m-%d', errors='coerce').dt.strftime('%Y-%m-%d')
 
+# extract registration year for temporal analysis
 df["Year"] = pd.to_datetime(df["date_registration"], format='%Y-%m-%d', errors="coerce").dt.year
 
 def clean_html_tags(text):
-    # remove html tags from text
+    """
+    Remove HTML tags and normalize whitespace from text fields.
+    This is needed because some fields contain HTML markup.
+    """
     if pd.isna(text):
         return text
     text = str(text)
+    # strip all HTML tags
     text = re.sub(r'<[^>]+>', '', text)
+    # normalize line breaks and whitespace
     text = text.replace('\\r\\n', ' ').replace('\\n', ' ')
     text = re.sub(r'\s+', ' ', text).strip()
     return text if text else None
 
+# clean HTML from text fields that may contain markup
 html_fields = [ "inclusion_criteria", "exclusion_criteria","primary_outcome","secondary_outcome","intervention"]
 for field in html_fields:
     if field in df.columns:
         df[field] = df[field].apply(clean_html_tags)
 
-
+# Remove outliers - track how many records we drop
 outliers_removed = 0
 
+# filter out unrealistic sample sizes (keep values between 1 and 1 million)
 if 'target_sample_size' in df.columns:
     df['target_sample_size'] = pd.to_numeric(df['target_sample_size'], errors='coerce')
     before = len(df)
@@ -69,7 +88,11 @@ if 'target_sample_size' in df.columns:
     outliers_removed += removed
 
 def validate_age(age_text):
-    # check if age value is reasonable
+    """
+    Validate age ranges to filter out data entry errors.
+    Handles different age units: years, months, days, weeks.
+    Returns True if the age is within reasonable bounds.
+    """
     if pd.isna(age_text):
         return True
     age_text = str(age_text).lower()
@@ -77,14 +100,16 @@ def validate_age(age_text):
     if not numbers:
         return True
     age = int(numbers[0])
+    # different validation rules based on unit
     if 'year' in age_text or 'y'in age_text:
         return 0 <= age <= 120
     elif 'month' in age_text or 'm'in age_text:
-        return 0 <= age <= 1440
+        return 0 <= age <= 1440  # 120 years in months
     elif 'day' in age_text or 'week' in age_text:
         return True
     return 0 <= age <= 120
 
+# apply age validation to remove unrealistic values
 if 'inclusion_age_min' in df.columns and 'inclusion_age_max' in df.columns:
     before = len(df)
     df = df[df['inclusion_age_min'].apply(validate_age)]
@@ -93,6 +118,7 @@ if 'inclusion_age_min' in df.columns and 'inclusion_age_max' in df.columns:
     outliers_removed += removed
 print(f"deleted in total {outliers_removed} ")
 
+# Drop fields that aren't needed for analysis
 print("\nDelete information")
 sensitive_fields = ['contact_affiliation', 'secondary_sponsor', 'web_address', 'results_url_link']
 removed_fields = []
@@ -104,38 +130,44 @@ for field in sensitive_fields:
 if removed_fields:
     print(f"Delete: {', '.join(removed_fields)}")
 
+# Fill missing values in categorical fields with "Unknown"
 fill_fields = ["standardised_condition", "countries", "primary_sponsor", "phase", "study_type"]
 for field in fill_fields:
     if field in df.columns:
         df[field] = df[field].fillna("Unknown")
 
+# results_ind defaults to "No" if not specified
 if "results_ind" in df.columns:
     df["results_ind"] = df["results_ind"].fillna("No")
 
+# impute missing sample sizes with median (better than mean for skewed data)
 if "target_sample_size" in df.columns:
     median_value = df["target_sample_size"].median()
     df["target_sample_size"] = df["target_sample_size"].fillna(median_value)
     print(f"Fill in missing values of sample size with median: {median_value}")
 
+# Add derived columns for analysis
 df["sponsor_category"] = df["primary_sponsor"].apply(classify_categories)
-
 df["income_level"] = df["country_codes"].apply(map_income)
 
+# show distribution of sponsor types
 all_sponsor_counts = df["sponsor_category"].value_counts()
 print("\nSponsor Category Classification:")
 for category, count in all_sponsor_counts.items():
     print(f"  {category}: {count} ({count / len(df) * 100:.1f}%)")
 
+# Count trials per country (handling multi-country trials)
 if 'country_codes' in df.columns:
-    # count how many trials each country has
     country_list = []
     for codes in df['country_codes'].dropna():
         codes_str = str(codes).strip()
+        # split multi-country codes (separated by |)
         if '|' in codes_str:
             codes = [c.strip() for c in codes_str.split('|')]
         else:
             codes = [codes_str]
 
+        # convert codes to country names
         for code in codes:
             code = code.upper()
             if code in COUNTRY_CODE:
@@ -145,6 +177,7 @@ if 'country_codes' in df.columns:
     country_counts.to_csv("CleanedData/country_statistics.csv", header=['count'], index_label='country', encoding="utf-8-sig")
     print(f"\nTotal countries with trials: {len(country_counts)}")
 
+# Generate separate statistics for industry-sponsored trials
 if 'country_codes' in df.columns and 'sponsor_category' in df.columns:
     industry_df = df[df['sponsor_category'] == 'Industry']
 
@@ -163,8 +196,11 @@ if 'country_codes' in df.columns and 'sponsor_category' in df.columns:
         )
         print(f"Industry: {len(industry_df)} trials across {len(set(industry_countries))} countries")
 
+# Create boolean flag for results publication status
 df["results_posted"] = df["results_ind"].str.upper().str.strip() == "YES"
 published_df = df[df["results_posted"] == True].copy()
+
+# Count trials with published results by country
 if 'country_codes' in published_df.columns:
     published_country_list = []
     for codes in published_df['country_codes'].dropna():
@@ -181,6 +217,7 @@ if 'country_codes' in published_df.columns:
 
     published_country_counts = pd.Series(published_country_list).value_counts()
     published_country_counts.to_csv(f"CleanedData/published_country_statistics.csv",header=['count'], index_label='country', encoding="utf-8-sig")
+
 print(f"\nPublished: {len(published_df)} ({len(published_df) / len(df) * 100:.1f}%)")
 print(f"Unpublished: {len(df) - len(published_df)} ({(len(df) - len(published_df)) / len(df) * 100:.1f}%)")
 

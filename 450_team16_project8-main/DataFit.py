@@ -11,17 +11,21 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_auc_sco
 
 os.makedirs("CleanedDataPlt", exist_ok=True)
 
+# Load cleaned data from previous step
 df = pd.read_csv("CleanedData/cleaned_ictrp.csv")
 
+# Select categorical features for predicting results publication
 features = ["phase", "study_type", "sponsor_category", "income_level"]
 X = df[features]
 y = df["results_posted"].astype(int)
 
+# split with stratification to maintain class balance
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# build model and train it
+# Build pipeline: encode categorical variables then fit logistic regression
+# class_weight='balanced' handles class imbalance automatically
 model = Pipeline([
     ("encoder", ColumnTransformer([
         ("cat", OneHotEncoder(handle_unknown="ignore"), features)
@@ -29,7 +33,7 @@ model = Pipeline([
     ("logit", LogisticRegression(max_iter=2000, class_weight='balanced',random_state=42))
 ]).fit(X_train, y_train)
 
-# get feature names and their coefficients
+# Extract feature importance (coefficients) from trained model
 feature_names = model.named_steps["encoder"].get_feature_names_out()
 coefficients = model.named_steps["logit"].coef_[0]
 
@@ -40,11 +44,12 @@ results = pd.DataFrame({
 
 results.to_csv("CleanedData/logit_results.csv", index=False, encoding="utf-8-sig")
 
+# Create visualization grid for coefficients
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 fig.suptitle('Logistic Regression Coefficients (Balanced Model)',
              fontsize=16, fontweight='bold')
 
-# draw plot for each feature type
+# group features by type for separate plots
 groups = {
     'Phase': 'cat__phase_',
     'Study Type': 'cat__study_type_',
@@ -60,9 +65,11 @@ for i, (title, prefix) in enumerate(groups.items()):
     if len(group_data) == 0:
         continue
 
+    # remove prefix to make labels cleaner
     group_data['short_name'] = group_data['feature'].str.replace(prefix, '', regex=False)
     group_data = group_data.sort_values('coefficient')
 
+    # color by sign: red for negative impact, green for positive
     colors = ['#d62728' if x < 0 else '#2ecc71' for x in group_data['coefficient']]
     ax.barh(group_data['short_name'], group_data['coefficient'],
             color=colors, alpha=0.75, edgecolor='black', linewidth=0.5)
@@ -71,6 +78,7 @@ for i, (title, prefix) in enumerate(groups.items()):
     ax.set_title(title, fontweight='bold', fontsize=12)
     ax.grid(axis='x', alpha=0.3)
 
+    # add legend on first subplot
     if i == 0:
         from matplotlib.patches import Patch
         legend_elements = [
@@ -83,17 +91,18 @@ plt.tight_layout()
 plt.savefig("CleanedDataPlt/coefficients.jpg", dpi=300, bbox_inches='tight')
 plt.close()
 
+# Generate predictions on test set
 y_pred = model.predict(X_test)
 y_pred_proba = model.predict_proba(X_test)[:, 1]
 
-
+# Evaluate model performance
 print(" Model Evaluation (Balanced)")
-
 
 print(f"\nTrain Accuracy: {model.score(X_train, y_train):.4f}")
 print(f" Test Accuracy: {model.score(X_test, y_test):.4f}")
 print(f"AUC Score: {roc_auc_score(y_test, y_pred_proba):.4f}")
 
+# check if class distribution is maintained after split
 print("\n Class Distribution:")
 print(f"train: {y_train.value_counts().to_dict()}")
 print(f"test: {y_test.value_counts().to_dict()}")
@@ -104,6 +113,7 @@ print(cm)
 print(f"  -> predit 0 (No Results): {cm[:, 0].sum()}")
 print(f"  -> predit 1 (Results Posted): {cm[:, 1].sum()}")
 
+# detailed classification metrics
 print("\n Classification Report:")
 print(classification_report(y_test, y_pred, target_names=['No Results (0)', 'Results Posted (1)'],zero_division=0))
 print("\n All DataFit completed ")

@@ -9,15 +9,20 @@ data_path = os.path.join("CleanedData", "cleaned_ictrp.csv")
 df = pd.read_csv(data_path)
 
 def classify_preg(row):
-    # check if trial includes pregnant women
+    """
+    Classify trials based on whether they include pregnant participants.
+    Returns INCLUDED if pregnant women are explicitly included, NOT_INCLUDED otherwise.
+    """
     raw = str(row.get("pregnant_participants", "")).strip().upper()
     if raw == "INCLUDED":
         return "INCLUDED"
     else:
         return "NOT_INCLUDED"
 
+# apply pregnancy inclusion classification
 df["preg_status"] = df.apply(classify_preg, axis=1)
 
+# calculate basic statistics
 total = len(df)
 included = (df["preg_status"] == "INCLUDED").sum()
 not_included = (df["preg_status"] == "NOT_INCLUDED").sum()
@@ -31,7 +36,7 @@ print()
 
 statusCounts = df["preg_status"].value_counts()
 
-# draw pie chart for overall pregnancy inclusion
+# visualize overall pregnancy inclusion rates
 fig1, ax1 = plt.subplots(figsize=(6, 6))
 ax1.pie(
     statusCounts.values,
@@ -46,6 +51,7 @@ pie_path = os.path.join(output, "pregnancy_inclusion.png")
 plt.savefig(pie_path, dpi=300)
 plt.close(fig1)
 
+# filter to trials that include pregnant women for disease-specific analysis
 df_included = df[df["preg_status"] == "INCLUDED"].copy()
 
 disease_col = "standardised_condition"
@@ -61,7 +67,7 @@ print("---Trials including pregnant women by disease---")
 print(top_diseases)
 print()
 
-# draw bar chart for top diseases
+# show which diseases most commonly include pregnant participants
 fig2, ax2 = plt.subplots(figsize=(10, 6))
 ax2.bar(top_diseases.index, top_diseases.values)
 ax2.set_title(f"Number of trials including pregnant women by disease")
@@ -79,7 +85,7 @@ plt.close(fig2)
 
 phase_col = "phase"
 
-# calculate inclusion rate by phase
+# analyze how pregnancy inclusion varies across trial phases
 phase_summary = (
     df.groupby(phase_col)
       .agg(
@@ -92,6 +98,7 @@ phase_summary["inclusion_rate"] = (
     phase_summary["preg_included"] / phase_summary["total_trials"]
 )
 
+# order phases logically from early to late stage
 phase_order = [
     "PHASE I TRIAL",
     "PHASE I/II TRIAL",
@@ -110,7 +117,7 @@ print("---Pregnancy inclusion by phase---")
 print(phase_summary)
 print()
 
-# draw line chart for inclusion rate by phase
+# visualize trend: do later-stage trials include pregnant women more often?
 fig3, ax3 = plt.subplots(figsize=(9, 5))
 ax3.plot(
     phase_summary.index,
@@ -129,6 +136,5 @@ plt.tight_layout()
 linePath = os.path.join(output, "inclusion_phase.png")
 plt.savefig(linePath, dpi=300)
 plt.close(fig3)
-
 
 print(f"Plots saved to '{output}' directory")

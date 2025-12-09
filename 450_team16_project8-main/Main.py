@@ -1,21 +1,29 @@
+"""
+Main pipeline controller for NTD clinical trials analysis.
+Runs all analysis scripts in the correct order and reports execution status.
+"""
+
 import subprocess
 import sys
 import time
 import os
 
-# list of scripts to run in order
+# define execution order - each script depends on outputs from previous ones
 SCRIPTS = [
-    "CleanData.py",
-    "DataFit.py",
-    "ExtractDrug.py",
-    "Network.py",
-    "visualization.py",
-    "pregnant.py",
+    "CleanData.py",      # clean and preprocess raw data
+    "DataFit.py",        # build logistic regression model
+    "ExtractDrug.py",    # analyze Chagas drug trends
+    "Network.py",        # create collaboration network
+    "visualization.py",  # generate geographic and funding visualizations
+    "pregnant.py",       # analyze pregnancy inclusion patterns
 ]
 
 
 def run_script(script_name):
-    # run one python script
+    """
+    Execute a Python script and capture its return status.
+    Returns True if successful, False if error occurred.
+    """
     print(f"\n{'=' * 50}")
     print(f"Running: {script_name}")
     print('=' * 50)
@@ -34,6 +42,10 @@ def run_script(script_name):
 
 
 def main():
+    """
+    Main execution function - runs all analysis scripts sequentially.
+    Stops if any script fails to ensure data integrity.
+    """
     print("\n" + "=" * 50)
     print("  NTD Clinical Trials Analysis Pipeline")
     print("  Group 16 - Lancaster University")
