@@ -1,3 +1,4 @@
+# map from country code to country name
 COUNTRY_CODE = {
     'BRA': 'Brazil', 'IND': 'India', 'ARG': 'Argentina', 'KEN': 'Kenya',
     'TZA': 'Tanzania', 'ETH': 'Ethiopia', 'CIV': 'Côte d\'Ivoire', 'UGA': 'Uganda',
@@ -17,39 +18,29 @@ COUNTRY_CODE = {
     'SLV': 'El Salvador', 'MRT': 'Mauritania'
 }
 
-# 世界银行收入分类 World Bank income classification
-# Maps country codes to World Bank income levels (2024 classification)
+# sort countries by income level
 INCOME_MAP = {
-    # Low income countries (GNI per capita < $1,135)
     "Low": [
         'BFA', 'MDG', 'MOZ', 'TZA', 'KEN', 'ETH', 'UGA', 'ZWE',
         'MWI', 'RWA', 'NER', 'LBR', 'COD', 'SDN', 'HTI', 'MRT',
         'GNB', 'MLI'
     ],
-    # Lower middle income countries (GNI per capita $1,136 - $4,465)
     "Lower middle": [
         'IND', 'BGD', 'PHL', 'VNM', 'IDN', 'EGY', 'GHA', 'ZMB',
         'CMR', 'NPL', 'KHM', 'LAO', 'LKA', 'TLS', 'HND', 'SLV',
         'SEN', 'SLB'
     ],
-    # Upper middle income countries (GNI per capita $4,466 - $13,845)
     "Upper middle": [
         'CHN', 'BRA', 'MEX', 'COL', 'THA', 'ZAF', 'PER', 'ECU',
         'GAB', 'ARG', 'VEN', 'BOL', 'CIV', 'GTM', 'FJI'
     ],
-    # High income countries (GNI per capita > $13,845)
     "High": [
         'USA', 'GBR', 'DEU', 'FRA', 'ESP', 'NLD', 'CHE', 'CAN',
         'AUS', 'BEL', 'CHL'
     ]
 }
 
-# 高负担国家列表 High burden countries for NTDs
-# Countries with high prevalence of Neglected Tropical Diseases
-
-
-# 赞助商分类关键词 Sponsor classification keywords
-# Keywords used to classify sponsors into categories
+# keywords to check what type of sponsor
 SPONSOR_KEYWORDS = {
     'Government': [
         'MINISTRY', 'GOVERNMENT', 'NATIONAL INSTITUTE', 'CDC',

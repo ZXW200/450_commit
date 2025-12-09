@@ -2,16 +2,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-#创建保存图片的目录 Create directory to save plots
 output = "CleanedDataPlt"
 os.makedirs(output, exist_ok=True)
 
-#清洗后的数据读取 Read cleaned data
 data_path = os.path.join("CleanedData", "cleaned_ictrp.csv")
 df = pd.read_csv(data_path)
 
-#分类孕妇纳入情况 Classify pregnancy inclusion status
 def classify_preg(row):
+    # check if trial includes pregnant women
     raw = str(row.get("pregnant_participants", "")).strip().upper()
     if raw == "INCLUDED":
         return "INCLUDED"
@@ -20,7 +18,6 @@ def classify_preg(row):
 
 df["preg_status"] = df.apply(classify_preg, axis=1)
 
-#打印总体情况 Print summary statistics
 total = len(df)
 included = (df["preg_status"] == "INCLUDED").sum()
 not_included = (df["preg_status"] == "NOT_INCLUDED").sum()
@@ -32,9 +29,9 @@ print(f"Trials NOT including pregnant women: {not_included}")
 print(df["preg_status"].value_counts())
 print()
 
-#整体孕妇纳入情况饼图 Overall pregnancy inclusion pie chart
 statusCounts = df["preg_status"].value_counts()
 
+# draw pie chart for overall pregnancy inclusion
 fig1, ax1 = plt.subplots(figsize=(6, 6))
 ax1.pie(
     statusCounts.values,
@@ -45,12 +42,10 @@ ax1.pie(
 ax1.set_title("Pregnancy inclusion status (all trials)")
 ax1.axis("equal")
 plt.tight_layout()
-#保存图片Save plot
 pie_path = os.path.join(output, "pregnancy_inclusion.png")
 plt.savefig(pie_path, dpi=300)
-plt.close(fig1) 
+plt.close(fig1)
 
-#按疾病统计的柱状图 Bar chart: inclusion by disease
 df_included = df[df["preg_status"] == "INCLUDED"].copy()
 
 disease_col = "standardised_condition"
@@ -66,6 +61,7 @@ print("---Trials including pregnant women by disease---")
 print(top_diseases)
 print()
 
+# draw bar chart for top diseases
 fig2, ax2 = plt.subplots(figsize=(10, 6))
 ax2.bar(top_diseases.index, top_diseases.values)
 ax2.set_title(f"Number of trials including pregnant women by disease")
@@ -77,14 +73,13 @@ for label in ax2.get_xticklabels():
     label.set_horizontalalignment("right")
 
 plt.tight_layout()
-#保存图片 Save plot
 bar_path = os.path.join(output, "inclusion_disease.png")
 plt.savefig(bar_path, dpi=300)
 plt.close(fig2)
 
-#各试验阶段孕妇纳入比例折线图 Inclusion rate by phase Line chart
 phase_col = "phase"
 
+# calculate inclusion rate by phase
 phase_summary = (
     df.groupby(phase_col)
       .agg(
@@ -115,6 +110,7 @@ print("---Pregnancy inclusion by phase---")
 print(phase_summary)
 print()
 
+# draw line chart for inclusion rate by phase
 fig3, ax3 = plt.subplots(figsize=(9, 5))
 ax3.plot(
     phase_summary.index,
@@ -130,7 +126,6 @@ for label in ax3.get_xticklabels():
     label.set_horizontalalignment("right")
 
 plt.tight_layout()
-#保存图片Save plot
 linePath = os.path.join(output, "inclusion_phase.png")
 plt.savefig(linePath, dpi=300)
 plt.close(fig3)
