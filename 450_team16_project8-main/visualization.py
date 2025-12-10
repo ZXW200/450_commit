@@ -227,7 +227,7 @@ table = [
 chi2, p, _, _ = chi2_contingency(table)
 print(f"Chi-square test chi2:{chi2:.2f},p-value: {p:.2f}")
 # print summary statistics
-print(f"\nIndustry funding analysis / 产业界资助分析:")
+print(f"\nIndustry funding analysis :")
 print(f"  Total Industry trials: {len(industry_df)} ({len(industry_df)/len(df)*100:.2f}%)")
 print(f"  High burden countries: {high_burden_count}/{high_burden_all_count} ({high_burden_count/high_burden_all_count*100:.2f}%)")
 print(f"  Other countries: {other_count}/{other_all_count} ({other_count/other_all_count*100:.2f}%)")
